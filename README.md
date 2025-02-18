@@ -1,16 +1,29 @@
 # battery_notify
 
-A new Flutter project.
+一个自定义充电达到 xx% 时，提醒用户拔掉手机充电器。
+
+- 自定义提醒电量阈值
+
+- 自定义循环提醒次数
+
+- 自定义提醒铃声
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+```shell
+# 安装依赖
+flutter pub get
 
-A few resources to get you started if this is your first Flutter project:
+# 打包
+flutter build apk
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+或
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+直接使用`app-release.apk`
+
+## Demo
+
+![image-20250218202217655](README.assets/image-20250218202217655.png)
+
+![image-20250218202234312](README.assets/image-20250218202234312.png)

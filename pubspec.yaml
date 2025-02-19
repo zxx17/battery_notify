@@ -33,6 +33,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   battery_plus: ^4.1.0  # 用于监控电池状态
   audioplayers: ^5.2.1  # 用于播放提示音
+  flutter_local_notifications: ^16.3.2 # 通知
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -62,8 +63,8 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/static/alarm-xiaoxin.mp3
-    - assets/static/ding_dong_ji.mp3
+    - assets/static/default.mp3
+    - assets/static/xiaomi.mp3
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

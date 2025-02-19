@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 void main() {
   runApp(const MyApp());
@@ -41,19 +42,22 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
   int _repeatTimes = 3; // 默认重复3次
   int _playedTimes = 0; // 记录已播放次数
   DateTime? _lastPlayTime; // 记录上次播放时间
-  String _selectedSound = 'alarm-xiaoxin.mp3'; // 默认铃声
+  String _selectedSound = 'default.mp3'; // 默认铃声
   final Map<String, String> _availableSounds = {
-    'alarm-xiaoxin.mp3': '默认铃声',
-    'ding_dong_ji.mp3': '叮咚鸡',
+    'default.mp3': '默认铃声',
+    'xiaomi.mp3': '小米经典',
   };
 
   // 添加 MethodChannel
   static const platform = MethodChannel('com.zxx17.battery_notify/battery');
 
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
   @override
   void initState() {
     super.initState();
     _initBatteryState();
+    _initNotifications();
     _startBatteryMonitor();
     _requestBatteryOptimizations();
   }
@@ -72,6 +76,39 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
       _batteryState = batteryState;
       _batteryLevel = batteryLevel;
     });
+  }
+
+  Future<void> _initNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings = InitializationSettings(android: androidSettings);
+    await _notificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showMonitoringNotification() async {
+    const androidDetails = AndroidNotificationDetails(
+      'battery_monitor_channel',
+      '电池监控通知',
+      channelDescription: '显示电池监控状态',
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      showWhen: false,
+      playSound: false,
+      enableVibration: false,
+    );
+    
+    const notificationDetails = NotificationDetails(android: androidDetails);
+    
+    await _notificationsPlugin.show(
+      1,
+      '充电提醒',
+      '正在监控手机充电状态 - 当前电量：$_batteryLevel%',
+      notificationDetails,
+    );
+  }
+
+  void _cancelMonitoringNotification() {
+    _notificationsPlugin.cancel(1);
   }
 
   Future<void> _startBatteryMonitor() async {
@@ -101,13 +138,27 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
   Future<void> _checkBatteryStatus() async {
     if (!_isMonitoring) return;
 
+    // 更新通知栏显示的电量
+    if (_isMonitoring) {
+      _showMonitoringNotification();
+    }
+
+    // 如果不在充电状态，立即停止播放
+    if (_batteryState != BatteryState.charging) {
+      _hasAlerted = false;
+      _playedTimes = 0;
+      _lastPlayTime = null;
+      await _audioPlayer.stop();  // 立即停止播放
+      return;
+    }
+
     if (_batteryState == BatteryState.charging && 
         _batteryLevel >= _alertThreshold && 
         !_hasAlerted) {
       _hasAlerted = true;
       _playedTimes = 0;
       await _playAlarm();
-    } else if (_batteryState != BatteryState.charging || _batteryLevel < (_alertThreshold - 5)) {
+    } else if (_batteryLevel < (_alertThreshold - 5)) {
       _hasAlerted = false;
       _playedTimes = 0;
       _lastPlayTime = null;
@@ -115,7 +166,10 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
   }
 
   Future<void> _playAlarm() async {
-    if (_playedTimes >= _repeatTimes) return;
+    // 再次检查是否在充电状态，如果不在充电则不播放
+    if (!_isMonitoring || _batteryState != BatteryState.charging || _playedTimes >= _repeatTimes) {
+      return;
+    }
     
     final now = DateTime.now();
     if (_lastPlayTime != null && 
@@ -125,7 +179,7 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
     _lastPlayTime = now;
     _playedTimes++;
     
-    if (_playedTimes < _repeatTimes) {
+    if (_playedTimes < _repeatTimes && _batteryState == BatteryState.charging) {
       Future.delayed(const Duration(seconds: 10), _playAlarm);
     }
   }
@@ -145,10 +199,11 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
       _isMonitoring = !_isMonitoring;
       if (_isMonitoring) {
         _startBatteryMonitor();
-        // 开启监控时请求电池优化权限
+        _showMonitoringNotification();
         _requestBatteryOptimizations();
       } else {
         _audioPlayer.stop();
+        _cancelMonitoringNotification();
       }
     });
   }
@@ -157,7 +212,7 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
     setState(() {
       _alertThreshold = 88;
       _repeatTimes = 3;
-      _selectedSound = 'alarm-xiaoxin.mp3';
+      _selectedSound = 'default.mp3';
     });
   }
 

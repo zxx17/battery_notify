@@ -4,6 +4,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import 'battery_stats_page.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -96,9 +98,9 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
       playSound: false,
       enableVibration: false,
     );
-    
+
     const notificationDetails = NotificationDetails(android: androidDetails);
-    
+
     await _notificationsPlugin.show(
       1,
       '充电提醒',
@@ -123,12 +125,12 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
     // 定期检查电池电量
     Future.doWhile(() async {
       if (!_isMonitoring) return false;
-      
+
       final batteryLevel = await _battery.batteryLevel;
       setState(() {
         _batteryLevel = batteryLevel;
       });
-      
+
       await _checkBatteryStatus();
       await Future.delayed(const Duration(seconds: 5));
       return _isMonitoring;
@@ -152,8 +154,8 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
       return;
     }
 
-    if (_batteryState == BatteryState.charging && 
-        _batteryLevel >= _alertThreshold && 
+    if (_batteryState == BatteryState.charging &&
+        _batteryLevel >= _alertThreshold &&
         !_hasAlerted) {
       _hasAlerted = true;
       _playedTimes = 0;
@@ -170,15 +172,15 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
     if (!_isMonitoring || _batteryState != BatteryState.charging || _playedTimes >= _repeatTimes) {
       return;
     }
-    
+
     final now = DateTime.now();
-    if (_lastPlayTime != null && 
+    if (_lastPlayTime != null &&
         now.difference(_lastPlayTime!).inSeconds < 10) return;
-    
+
     await _audioPlayer.play(AssetSource('static/$_selectedSound'));
     _lastPlayTime = now;
     _playedTimes++;
-    
+
     if (_playedTimes < _repeatTimes && _batteryState == BatteryState.charging) {
       Future.delayed(const Duration(seconds: 10), _playAlarm);
     }
@@ -224,9 +226,15 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white, // 修改为白色背景
       appBar: AppBar(
-        title: const Text('充电提醒'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('充电提醒', style: TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
+        )),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: Colors.black),
         leading: Builder(
           builder: (BuildContext context) {
             return IconButton(
@@ -237,16 +245,31 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
             );
           },
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BatteryStatsPage()),
+              );
+            },
+          ),
+        ],
       ),
       drawer: Drawer(
+        backgroundColor: Colors.white, // 修改抽屉背景为白色
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            DrawerHeader(
+            const DrawerHeader(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.inversePrimary,
+                image: DecorationImage(
+                  image: AssetImage('assets/static/img/setting.png'),
+                  fit: BoxFit.contain,  // 图片将覆盖整个header区域
+                ),
               ),
-              child: const Text(
+              child: Text(
                 '设置',
                 style: TextStyle(
                   fontSize: 24,
@@ -334,47 +357,114 @@ class _BatteryMonitorPageState extends State<BatteryMonitorPage> {
           ],
         ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Transform.rotate(
-                  angle: 1.5708, // 90度，使电池图标横向显示
-                  child: Icon(
-                    Icons.battery_full,
-                    size: 100,
-                    color: _batteryLevel > 70 
-                        ? Color.lerp(Colors.blue, Colors.green, (_batteryLevel - 70) / 30)
-                        : _batteryLevel > 20 
-                            ? Color.lerp(Colors.yellow, Colors.blue, (_batteryLevel - 20) / 50)
-                            : Color.lerp(Colors.red, Colors.pink, _batteryLevel / 20),
+      body: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white, // 修改 Container 背景为白色
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Transform.rotate(
+                    angle: 1.5708, // 90度，使电池图标横向显示
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 1000),
+                      child: Icon(
+                        _batteryState == BatteryState.charging 
+                            ? Icons.battery_charging_full_outlined 
+                            : Icons.battery_full_outlined,
+                        size: 100,
+                        color: _batteryLevel > 70 
+                            ? Color.lerp(Colors.blue, Colors.green, (_batteryLevel - 70) / 30)
+                            : _batteryLevel > 20 
+                                ? Color.lerp(Colors.yellow, Colors.blue, (_batteryLevel - 20) / 50)
+                                : Color.lerp(Colors.red, Colors.pink, _batteryLevel / 20),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '$_batteryLevel%',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('充电状态:'),
+                      Row(
+                        children: [
+                          Icon(
+                            _batteryState == BatteryState.charging 
+                                ? Icons.power
+                                : Icons.power_off,
+                            color: _batteryState == BatteryState.charging 
+                                ? Colors.green 
+                                : Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _batteryState == BatteryState.charging ? "充电中" : "未充电",
+                            style: TextStyle(
+                              color: _batteryState == BatteryState.charging 
+                                  ? Colors.green 
+                                  : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  '$_batteryLevel%',
-                  style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('监控状态:'),
+                      Row(
+                        children: [
+                          Icon(
+                            _isMonitoring ? Icons.visibility : Icons.visibility_off,
+                            color: _isMonitoring ? Colors.blue : Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _isMonitoring ? "开启" : "关闭",
+                            style: TextStyle(
+                              color: _isMonitoring ? Colors.blue : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '充电状态: ${_batteryState == BatteryState.charging ? "充电中" : "未充电"}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '监控状态: ${_isMonitoring ? "开启" : "关闭"}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: _toggleMonitoring,
-              child: Text(_isMonitoring ? '停止监控' : '开始监控'),
-            ),
-          ],
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _toggleMonitoring,
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                ),
+                child: Text(_isMonitoring ? '停止监控' : '开始监控'),
+              ),
+            ],
+          ),
         ),
       ),
     );
